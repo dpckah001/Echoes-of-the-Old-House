@@ -1,0 +1,866 @@
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>回响老宅 - 恐怖冒险游戏</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+<script>
+tailwind.config = {
+theme: {
+extend: {
+colors: {
+primary: '#8B0000',
+secondary: '#4A3728',
+dark: '#1A120B',
+light: '#D5CEA3',
+shadow: '#3C2A21',
+},
+fontFamily: {
+horror: ['Georgia', 'serif'],
+},
+}
+}
+}
+</script>
+<style type="text/tailwindcss">
+@layer utilities {
+.text-shadow {
+text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+.animate-flicker {
+animation: flicker 2s infinite alternate;
+}
+.animate-pulse-slow {
+animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.animate-float {
+animation: float 3s ease-in-out infinite;
+}
+.bg-noise {
+background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+background-blend-mode: overlay;
+background-size: 150px;
+}
+.phone-button {
+@apply w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-light text-lg cursor-pointer hover:bg-primary transition-all duration-200;
+}
+.phone-button-large {
+@apply w-24 h-10 rounded-md bg-secondary flex items-center justify-center text-light text-lg cursor-pointer hover:bg-primary transition-all duration-200;
+}
+.static-noise {
+position: relative;
+}
+.static-noise::after {
+content: "";
+position: absolute;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.1'/%3E%3C/svg%3E");
+pointer-events: none;
+opacity: 0;
+transition: opacity 0.3s;
+}
+.static-noise.active::after {
+opacity: 1;
+}
+}
+
+@keyframes flicker {
+0%, 100% { opacity: 1; }
+50% { opacity: 0.7; }
+}
+
+@keyframes float {
+0%, 100% { transform: translateY(0); }
+50% { transform: translateY(-10px); }
+}
+</style>
+
+</head>
+<body class="bg-dark text-light font-horror overflow-hidden h-screen">
+<!-- 游戏容器 -->
+<div id="game-container" class="relative w-full h-full bg-noise">
+<!-- 开场黑屏 -->
+<div id="splash-screen" class="absolute inset-0 z-50 bg-dark flex flex-col items-center justify-center transition-opacity duration-2000">
+<h1 class="text-[clamp(2rem,5vw,4rem)] text-primary text-shadow mb-8 animate-float">回响老宅</h1>
+<p class="text-[clamp(1rem,2vw,1.5rem)] text-light/80 mb-16 max-w-2xl text-center px-4">
+为了寻找失踪三年的妹妹，你回到了童年居住的老宅...<br>
+但这里的一切都不再是记忆中的样子...
+</p>
+<button id="start-game" class="px-8 py-3 bg-primary text-light border-2 border-light rounded-md hover:bg-light hover:text-primary transition-all duration-500 transform hover:scale-105 focus:outline-none">
+进入老宅
+</button>
+</div>
+
+<!-- 游戏UI -->
+<div id="game-ui" class="hidden absolute inset-0 flex flex-col">
+    <!-- 顶部状态栏 -->
+    <div class="bg-dark/70 backdrop-blur-sm p-4 flex justify-between items-center border-b border-light/30">
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center">
+                <i class="fa fa-battery-half text-light/70 mr-2"></i>
+                <div class="w-32 h-4 bg-dark border border-light/50 rounded-full overflow-hidden">
+                    <div id="flashlight-bar" class="h-full bg-primary w-3/4 transition-all duration-300"></div>
+                </div>
+            </div>
+            <div class="flex items-center">
+                <i class="fa fa-book text-light/70 mr-2"></i>
+                <span id="clues-count" class="text-light">0/10</span>
+            </div>
+            <div id="police-status" class="hidden flex items-center">
+                <i class="fa fa-ambulance text-blue-400 mr-2"></i>
+                <span id="police-timer" class="text-blue-400">警察正在赶来: 00:60</span>
+            </div>
+        </div>
+        <div class="flex items-center">
+            <button id="inventory-btn" class="text-light/70 hover:text-light transition-colors">
+                <i class="fa fa-briefcase text-xl"></i>
+            </button>
+            <button id="map-btn" class="text-light/70 hover:text-light transition-colors ml-4">
+                <i class="fa fa-map text-xl"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- 游戏主视图 -->
+    <div id="game-view" class="flex-1 relative overflow-hidden">
+        <div id="scene" class="w-full h-full bg-secondary/30 relative">
+            <!-- 房间1：客厅 -->
+            <div id="room-living" class="absolute inset-0 bg-shadow/50 p-8 hidden">
+                <div class="absolute top-1/4 left-1/4 w-20 h-20 bg-light/20 rounded-full animate-pulse-slow cursor-pointer" data-item="日记碎片1"></div>
+                <div class="absolute bottom-1/3 right-1/4 w-32 h-24 bg-light/10 rounded-lg cursor-pointer" data-interact="柜子"></div>
+                <div class="absolute top-1/2 right-1/2 w-40 h-24 bg-light/10 rounded-md cursor-pointer" data-door="餐厅"></div>
+                <div class="absolute top-1/3 left-1/2 w-24 h-40 bg-light/10 rounded-md cursor-pointer" data-door="走廊"></div>
+                <div class="absolute bottom-1/4 left-1/3 w-48 h-32 bg-light/5 rounded-lg cursor-pointer" data-furniture="沙发"></div>
+
+                <!-- 电话机 -->
+                <div class="absolute top-1/3 right-1/3 w-40 h-32 bg-secondary/40 rounded-lg p-2 border border-light/30 cursor-pointer group" data-interact="电话机">
+                    <div class="text-center text-light/70 text-sm mb-1 group-hover:text-primary transition-colors">老式电话机</div>
+                    <div class="w-full h-2/3 bg-dark/60 rounded flex items-center justify-center">
+                        <i class="fa fa-phone text-2xl text-light/80 group-hover:scale-110 transition-transform"></i>
+                    </div>
+                    <audio id="phone-ringer" preload="auto">
+                        <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAA==" type="audio/wav">
+                     </audio>
+                </div>
+            </div>
+
+            <!-- 其他房间保持不变 -->
+            <div id="room-dining" class="absolute inset-0 bg-shadow/60 p-8 hidden">
+                <div class="absolute top-1/3 right-1/3 w-20 h-20 bg-light/20 rounded-full animate-pulse-slow cursor-pointer" data-item="旧照片"></div>
+                <div class="absolute bottom-1/4 left-1/4 w-40 h-16 bg-light/10 rounded-lg cursor-pointer" data-interact="餐桌"></div>
+                <div class="absolute top-1/2 left-1/2 w-40 h-24 bg-light/10 rounded-md cursor-pointer" data-door="客厅"></div>
+                <div class="absolute top-1/4 right-1/2 w-24 h-40 bg-light/10 rounded-md cursor-pointer" data-door="厨房"></div>
+            </div>
+            <div id="room-kitchen" class="absolute inset-0 bg-shadow/70 p-8 hidden">
+                <div class="absolute bottom-1/3 left-1/4 w-20 h-20 bg-light/20 rounded-full animate-pulse-slow cursor-pointer" data-item="生锈的钥匙"></div>
+                <div class="absolute top-1/4 right-1/4 w-32 h-24 bg-light/10 rounded-lg cursor-pointer" data-interact="冰箱"></div>
+                <div class="absolute bottom-1/2 right-1/2 w-40 h-24 bg-light/10 rounded-md cursor-pointer" data-door="餐厅"></div>
+            </div>
+            <div id="room-hallway" class="absolute inset-0 bg-shadow/80 p-8 hidden">
+                <div class="absolute top-1/2 left-1/3 w-20 h-20 bg-light/20 rounded-full animate-pulse-slow cursor-pointer" data-item="日记碎片2"></div>
+                <div class="absolute top-1/3 right-1/3 w-32 h-40 bg-light/10 rounded-lg cursor-pointer" data-interact="壁橱"></div>
+                <div class="absolute bottom-1/2 left-1/2 w-40 h-24 bg-light/10 rounded-md cursor-pointer" data-door="客厅"></div>
+                <div class="absolute top-1/4 right-1/2 w-24 h-40 bg-light/10 rounded-md cursor-pointer" data-door="主卧"></div>
+                <div class="absolute bottom-1/4 left-1/2 w-24 h-40 bg-light/10 rounded-md cursor-pointer" data-door="地下室"></div>
+            </div>
+            <div id="room-master" class="absolute inset-0 bg-shadow/90 p-8 hidden">
+                <div class="absolute bottom-1/4 right-1/4 w-20 h-20 bg-light/20 rounded-full animate-pulse-slow cursor-pointer" data-item="全家福照片"></div>
+                <div class="absolute top-1/3 left-1/4 w-48 h-32 bg-light/10 rounded-lg cursor-pointer" data-interact="床"></div>
+                <div class="absolute top-1/2 right-1/2 w-40 h-24 bg-light/10 rounded-md cursor-pointer" data-door="走廊"></div>
+            </div>
+            <div id="room-basement" class="absolute inset-0 bg-shadow p-8 hidden">
+                <div class="absolute top-1/3 left-1/3 w-20 h-20 bg-light/20 rounded-full animate-pulse-slow cursor-pointer" data-item="仪式匕首"></div>
+                <div class="absolute bottom-1/4 right-1/3 w-64 h-40 bg-light/10 rounded-lg cursor-pointer" data-interact="祭坛"></div>
+                <div class="absolute top-1/2 right-1/2 w-40 h-24 bg-light/10 rounded-md cursor-pointer" data-door="走廊"></div>
+            </div>
+
+            <!-- 手电筒光晕 -->
+            <div id="flashlight" class="absolute w-96 h-96 rounded-full bg-light/20 blur-xl pointer-events-none"></div>
+
+            <!-- 阴影敌人 -->
+            <div id="enemy" class="absolute w-20 h-32 bg-primary/30 rounded-md blur-sm hidden animate-float"></div>
+        </div>
+    </div>
+
+    <!-- 底部对话/提示栏 -->
+    <div class="bg-dark/80 backdrop-blur-md p-4 border-t border-light/30 min-h-[120px]">
+        <div id="dialog-text" class="text-light/90 max-h-[120px] overflow-y-auto">
+            欢迎来到《回响老宅》。使用方向键移动，空格键切换手电筒，E键与物品互动。
+        </div>
+    </div>
+</div>
+
+<!-- 物品栏/地图界面 -->
+<div id="inventory-screen" class="hidden absolute inset-0 z-40 bg-dark/90 backdrop-blur-md flex flex-col items-center justify-center">
+    <h2 class="text-2xl text-primary mb-8">物品栏</h2>
+    <div id="inventory-items" class="grid grid-cols-4 gap-4 max-w-3xl w-full p-4">
+        <!-- 物品动态添加 -->
+    </div>
+    <button id="close-inventory" class="mt-8 px-6 py-2 bg-primary text-light rounded-md hover:bg-light hover:text-primary transition-all">
+        关闭
+    </button>
+</div>
+<div id="map-screen" class="hidden absolute inset-0 z-40 bg-dark/90 backdrop-blur-md flex flex-col items-center justify-center">
+    <h2 class="text-2xl text-primary mb-8">老宅地图</h2>
+    <div class="relative w-full max-w-2xl aspect-[4/3] bg-dark/70 border border-light/30 rounded-lg p-4">
+        <div class="absolute top-1/4 left-1/4 w-1/2 h-1/2 bg-secondary/30 rounded-md border border-light/50" id="map-living"></div>
+        <div class="absolute top-1/4 right-1/4 w-1/4 h-1/2 bg-secondary/30 rounded-md border border-light/50" id="map-dining"></div>
+        <div class="absolute top-1/4 right-0 w-1/4 h-1/2 bg-secondary/30 rounded-md border border-light/50" id="map-kitchen"></div>
+        <div class="absolute bottom-1/4 left-1/4 w-1/2 h-1/2 bg-secondary/30 rounded-md border border-light/50" id="map-hallway"></div>
+        <div class="absolute bottom-1/4 right-1/4 w-1/4 h-1/2 bg-secondary/30 rounded-md border border-light/50" id="map-master"></div>
+        <div class="absolute bottom-0 left-1/4 w-1/4 h-1/4 bg-secondary/30 rounded-md border border-light/50" id="map-basement"></div>
+        <div id="map-player" class="absolute w-4 h-4 bg-primary rounded-full"></div>
+    </div>
+    <button id="close-map" class="mt-8 px-6 py-2 bg-primary text-light rounded-md hover:bg-light hover:text-primary transition-all">
+        关闭
+    </button>
+</div>
+
+<!-- 电话机界面 -->
+<div id="phone-screen" class="hidden absolute inset-0 z-40 bg-dark/95 backdrop-blur-md flex flex-col items-center justify-center p-4 static-noise">
+    <h2 class="text-2xl text-primary mb-8">老式电话机</h2>
+    <p class="text-light/80 mb-6 text-center max-w-md">听筒里传来电流的滋滋声，请输入号码</p>
+
+    <div id="phone-display" class="w-full max-w-xs h-12 bg-dark border-2 border-light/50 rounded-md mb-6 flex items-center justify-center text-xl text-light">
+        <span id="phone-number">_ _ _ _ _ _ _</span>
+    </div>
+
+    <!-- 电话键盘 -->
+    <div class="grid grid-cols-3 gap-4 w-full max-w-md mb-8">
+        <div class="phone-button" data-number="1">1</div>
+        <div class="phone-button" data-number="2">2</div>
+        <div class="phone-button" data-number="3">3</div>
+        <div class="phone-button" data-number="4">4</div>
+        <div class="phone-button" data-number="5">5</div>
+        <div class="phone-button" data-number="6">6</div>
+        <div class="phone-button" data-number="7">7</div>
+        <div class="phone-button" data-number="8">8</div>
+        <div class="phone-button" data-number="9">9</div>
+        <div class="phone-button" data-number="*">*</div>
+        <div class="phone-button" data-number="0">0</div>
+        <div class="phone-button" data-number="#">#</div>
+    </div>
+
+    <div class="flex justify-center space-x-6">
+        <div class="phone-button-large" id="phone-clear">清除</div>
+        <div class="phone-button-large" id="phone-call">通话</div>
+    </div>
+
+    <button id="close-phone" class="mt-8 px-6 py-2 bg-primary text-light rounded-md hover:bg-light hover:text-primary transition-all">
+        挂断电话
+    </button>
+    <audio id="dial-tone" preload="auto">
+        <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAA==" type="audio/wav">
+     </audio>
+     <audio id="ringing-tone" preload="auto">
+        <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAA==" type="audio/wav">
+     </audio>
+</div>
+
+<!-- 结局动画 -->
+<div id="game-over" class="hidden absolute inset-0 z-50 bg-dark/95 flex flex-col items-center justify-center">
+    <h2 id="end-title" class="text-3xl text-primary mb-4">游戏结束</h2>
+    <p id="end-message" class="text-xl text-light/80 mb-8 max-w-2xl text-center px-4">
+        你未能解开老宅的秘密，永远被困在了这里...
+    </p>
+    <button id="restart-game" class="px-8 py-3 bg-primary text-light border-2 border-light rounded-md hover:bg-light hover:text-primary transition-all duration-500 transform hover:scale-105 focus:outline-none">
+        重新开始
+    </button>
+</div>
+<div id="rescue-animation" class="hidden absolute inset-0 z-60 bg-dark/80 flex flex-col items-center justify-center">
+    <h2 class="text-4xl text-blue-400 mb-8 animate-pulse">特遣队已到达！</h2>
+    <div class="w-64 h-64 bg-blue-500/20 rounded-full flex items-center justify-center animate-ping">
+        <div class="w-48 h-48 bg-blue-500/30 rounded-full flex items-center justify-center">
+            <i class="fa fa-shield text-6xl text-blue-400"></i>
+        </div>
+    </div>
+    <audio id="rescue-sound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAA==" type="audio/wav">
+     </audio>
+</div>
+<div id="police-animation" class="hidden absolute inset-0 z-60 bg-dark/80 flex flex-col items-center justify-center">
+    <h2 class="text-4xl text-blue-400 mb-8 animate-pulse">警察已到达！</h2>
+    <div class="w-64 h-64 bg-blue-500/20 rounded-full flex items-center justify-center animate-ping">
+        <div class="w-48 h-48 bg-blue-500/30 rounded-full flex items-center justify-center">
+            <i class="fa fa-ambulance text-6xl text-blue-400"></i>
+        </div>
+    </div>
+    <audio id="police-sound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAA==" type="audio/wav">
+     </audio>
+</div>
+</div>
+
+<script>
+    // 游戏状态
+    const gameState = {
+        currentRoom: 'room-living',
+        flashlightOn: true,
+        flashlightBattery: 100,
+        inventory: [],
+        cluesFound: 0,
+        totalClues: 10,
+        enemyActive: false,
+        enemyPosition: { x: 0, y: 0 },
+        playerPosition: { x: 0, y: 0 },
+        gameOver: false,
+        policeCalled: false,
+        policeTimer: 60,
+        phoneNumber: "",
+        specialEnding: false,
+        audioElements: {}
+    };
+
+    // 物品数据
+    const itemsData = {
+        "日记碎片1": { name: "日记碎片1", description: "日期已模糊... 妹妹的哭声... 他们在地下室...", type: "clue" },
+        "旧照片": { name: "旧照片", description: "小女孩站在老宅前，窗户里有模糊人影...", type: "clue" },
+        "生锈的钥匙": { name: "生锈的钥匙", description: "可能能打开某个上锁的门...", type: "tool" },
+        "日记碎片2": { name: "日记碎片2", description: "7月15日，中元节... 父亲的奇怪仪式...", type: "clue" },
+        "全家福照片": { name: "全家福照片", description: "家人笑容诡异，墙上有奇怪符号...", type: "clue" },
+        "仪式匕首": { name: "仪式匕首", description: "刻满神秘符号，刀刃有干涸血迹...", type: "keyItem" },
+        "神秘纸条": { name: "神秘纸条", description: "\"午夜12点，灵魂最脆弱的时候...\"", type: "clue" }
+    };
+
+    // DOM元素
+    const elements = {
+        splashScreen: document.getElementById('splash-screen'),
+        gameUI: document.getElementById('game-ui'),
+        inventoryScreen: document.getElementById('inventory-screen'),
+        mapScreen: document.getElementById('map-screen'),
+        phoneScreen: document.getElementById('phone-screen'),
+        gameOver: document.getElementById('game-over'),
+        dialogText: document.getElementById('dialog-text'),
+        flashlight: document.getElementById('flashlight'),
+        enemy: document.getElementById('enemy'),
+        flashlightBar: document.getElementById('flashlight-bar'),
+        cluesCount: document.getElementById('clues-count'),
+        inventoryItems: document.getElementById('inventory-items'),
+        mapPlayer: document.getElementById('map-player'),
+        policeStatus: document.getElementById('police-status'),
+        policeTimer: document.getElementById('police-timer'),
+        phoneNumber: document.getElementById('phone-number'),
+        rescueAnimation: document.getElementById('rescue-animation'),
+        policeAnimation: document.getElementById('police-animation')
+    };
+
+    // 房间配置
+    const roomConfig = {
+        "room-living": { name: "客厅", description: "布满灰尘的客厅，家具被白布覆盖，空气中弥漫着霉味...角落里有一部老式电话机，听筒歪放在一边。", mapPosition: { x: 1/4, y: 1/4 }, exits: { "餐厅": "room-dining", "走廊": "room-hallway" } },
+        "room-dining": { name: "餐厅", description: "餐桌上摆放着早已腐烂的食物，墙壁壁纸开始剥落...", mapPosition: { x: 2/4, y: 1/4 }, exits: { "客厅": "room-living", "厨房": "room-kitchen" } },
+        "room-kitchen": { name: "厨房", description: "水槽堆满脏盘子，冰箱发出奇怪的噪音...", mapPosition: { x: 3/4, y: 1/4 }, exits: { "餐厅": "room-dining" } },
+        "room-hallway": { name: "走廊", description: "狭长的走廊，墙上照片都被翻了过去，只有一盏吊灯在摇晃...", mapPosition: { x: 1/4, y: 2/4 }, exits: { "客厅": "room-living", "主卧": "room-master", "地下室": "room-basement" } },
+        "room-master": { name: "主卧", description: "巨大的床占据房间中央，被子凌乱地堆在一边...", mapPosition: { x: 2/4, y: 2/4 }, exits: { "走廊": "room-hallway" } },
+        "room-basement": { name: "地下室", description: "腐臭味扑面而来，墙壁布满青苔，中央有奇怪的祭坛...", mapPosition: { x: 1/4, y: 3/4 }, exits: { "走廊": "room-hallway" } }
+    };
+
+    // 初始化游戏
+    function initGame() {
+        // 加载音频
+        gameState.audioElements = {
+            phoneRinger: document.getElementById('phone-ringer'),
+            dialTone: document.getElementById('dial-tone'),
+            ringingTone: document.getElementById('ringing-tone'),
+            rescueSound: document.getElementById('rescue-sound'),
+            policeSound: document.getElementById('police-sound')
+        };
+
+        // 事件监听
+        document.getElementById('start-game').addEventListener('click', startGame);
+        document.getElementById('inventory-btn').addEventListener('click', toggleInventory);
+        document.getElementById('close-inventory').addEventListener('click', toggleInventory);
+        document.getElementById('map-btn').addEventListener('click', toggleMap);
+        document.getElementById('close-map').addEventListener('click', toggleMap);
+        document.getElementById('restart-game').addEventListener('click', restartGame);
+        
+        // 电话交互
+        document.getElementById('close-phone').addEventListener('click', togglePhone);
+        document.getElementById('phone-clear').addEventListener('click', clearPhoneNumber);
+        document.getElementById('phone-call').addEventListener('click', makeCall);
+        document.querySelectorAll('[data-number]').forEach(button => {
+            button.addEventListener('click', () => {
+                playSound('dialTone', 0.3, 200);
+                addPhoneNumber(button.dataset.number);
+            });
+        });
+        
+        // 键盘与鼠标控制
+        document.addEventListener('keydown', handleKeydown);
+        document.addEventListener('mousemove', handleMouseMove);
+        
+        // 初始化房间
+        initRooms();
+        gameLoop();
+    }
+
+    // 初始化房间交互
+    function initRooms() {
+        for (const roomId in roomConfig) {
+            const room = document.getElementById(roomId);
+            
+            // 门交互
+            room.querySelectorAll('[data-door]').forEach(door => {
+                door.addEventListener('click', () => {
+                    const targetRoom = roomConfig[roomId].exits[door.dataset.door];
+                    changeRoom(targetRoom);
+                });
+            });
+            
+            // 物品拾取
+            room.querySelectorAll('[data-item]').forEach(item => {
+                item.addEventListener('click', () => {
+                    pickupItem(item.dataset.item);
+                    item.remove();
+                });
+            });
+            
+            // 环境互动
+            room.querySelectorAll('[data-interact]').forEach(interactable => {
+                interactable.addEventListener('click', () => {
+                    interactWithObject(interactable.dataset.interact);
+                });
+            });
+        }
+    }
+
+    // 开始游戏
+    function startGame() {
+        elements.splashScreen.classList.add('opacity-0');
+        setTimeout(() => {
+            elements.splashScreen.classList.add('hidden');
+            elements.gameUI.classList.remove('hidden');
+            showRoom(gameState.currentRoom);
+            updateCluesCount();
+            updateMapPlayerPosition();
+            addDialogText(`你进入了老宅的${roomConfig[gameState.currentRoom].name}。`);
+            addDialogText(roomConfig[gameState.currentRoom].description);
+            
+            // 敌人激活
+            setTimeout(() => {
+                gameState.enemyActive = true;
+                moveEnemy();
+                addDialogText("你听到了什么东西在附近移动的声音...");
+            }, 30000);
+        }, 2000);
+    }
+
+    // 电话系统
+    function togglePhone() {
+        elements.phoneScreen.classList.toggle('hidden');
+        if (!elements.phoneScreen.classList.contains('hidden')) {
+            elements.phoneScreen.classList.add('active');
+            playSound('ringingTone', 0.2, 0, true);
+        } else {
+            elements.phoneScreen.classList.remove('active');
+            stopSound('ringingTone');
+        }
+    }
+
+    function addPhoneNumber(number) {
+        if (gameState.phoneNumber.length < 7) {
+            gameState.phoneNumber += number;
+            updatePhoneDisplay();
+        }
+    }
+
+    function clearPhoneNumber() {
+        gameState.phoneNumber = "";
+        updatePhoneDisplay();
+    }
+
+    function updatePhoneDisplay() {
+        let display = "";
+        for (let i = 0; i < 7; i++) {
+            display += gameState.phoneNumber[i] || "_";
+            if (i < 6) display += " ";
+        }
+        elements.phoneNumber.textContent = display;
+    }
+
+    // 拨打电话
+    function makeCall() {
+        if (gameState.phoneNumber.length !== 7) {
+            addDialogText("请输入完整的7位号码");
+            return;
+        }
+        
+        stopSound('ringingTone');
+        playSound('ringingTone', 0.3, 0, true);
+        
+        setTimeout(() => {
+            stopSound('ringingTone');
+            
+            if (gameState.phoneNumber === "9119119") { // 911紧急电话
+                addDialogText("电话接通了！听筒里传来嘈杂的电流声：\"这里是紧急救援，我们需要60秒到达现场...\"");
+                gameState.policeCalled = true;
+                elements.policeStatus.classList.remove('hidden');
+                startPoliceTimer();
+                
+                // 警察到来前敌人更活跃
+                gameState.enemyActive = true;
+                moveEnemy();
+                setTimeout(() => {
+                    addDialogText("你听到警笛声从远处传来，但老宅里的影子似乎变得更加狂躁...");
+                }, 30000);
+            } else if (gameState.phoneNumber === "27283376") { // bravefrog33字母转数字
+                addDialogText("电话那头传来加密信号，随后是机械音：\"特遣队已锁定位置，立即突入！\"");
+                elements.phoneScreen.classList.add('hidden');
+                elements.phoneScreen.classList.remove('active');
+                
+                setTimeout(() => {
+                    elements.rescueAnimation.classList.remove('hidden');
+                    playSound('rescueSound', 0.5);
+                    setTimeout(() => {
+                        gameState.specialEnding = true;
+                        endGame(true);
+                    }, 3000);
+                }, 1000);
+                return;
+            } else {
+                addDialogText("只有电流的滋滋声回应你，这个号码无法接通...");
+            }
+            
+            elements.phoneScreen.classList.add('hidden');
+            elements.phoneScreen.classList.remove('active');
+        }, 2000);
+    }
+
+    // 警察计时器
+    function startPoliceTimer() {
+        const timerInterval = setInterval(() => {
+            if (gameState.gameOver) {
+                clearInterval(timerInterval);
+                return;
+            }
+            
+            gameState.policeTimer--;
+            const minutes = Math.floor(gameState.policeTimer / 60);
+            const seconds = gameState.policeTimer % 60;
+            elements.policeTimer.textContent = `警察正在赶来: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (gameState.policeTimer <= 0) {
+                clearInterval(timerInterval);
+                elements.policeStatus.classList.add('hidden');
+                elements.policeAnimation.classList.remove('hidden');
+                playSound('policeSound', 0.5);
+                setTimeout(() => {
+                    endGame(true, "police");
+                }, 3000);
+            }
+        }, 1000);
+    }
+
+    // 房间切换
+    function changeRoom(roomId) {
+        hideAllRooms();
+        gameState.currentRoom = roomId;
+        showRoom(roomId);
+        addDialogText(`你进入了${roomConfig[roomId].name}。`);
+        addDialogText(roomConfig[roomId].description);
+        updateMapPlayerPosition();
+        
+        // 随机事件
+        if (Math.random() < 0.3) {
+            setTimeout(() => {
+                addDialogText("你听到远处传来一声微弱的哭声...");
+            }, 2000);
+        }
+    }
+
+    // 物品拾取
+    function pickupItem(itemName) {
+        gameState.inventory.push(itemName);
+        addDialogText(`你拾取了${itemName}。`);
+        
+        if (itemsData[itemName].type === 'clue') {
+            gameState.cluesFound++;
+            updateCluesCount();
+            
+            if (gameState.cluesFound >= gameState.totalClues) {
+                addDialogText("你已经找到了所有线索，祭坛的位置在召唤你...");
+            }
+        }
+    }
+
+    // 环境互动
+    function interactWithObject(objectName) {
+        let message = `你检查了${objectName}，但没有发现什么有用的东西。`;
+        
+        if (objectName === '电话机') {
+            togglePhone();
+            return;
+        } else if (objectName === '柜子') {
+            if (Math.random() < 0.5) {
+                message = `你在柜子里找到了一节电池！手电筒电量增加了。`;
+                gameState.flashlightBattery = Math.min(100, gameState.flashlightBattery + 25);
+                updateFlashlightBattery();
+            } else if (gameState.enemyActive && Math.random() < 0.3) {
+                message = `你躲进了柜子，听到外面有奇怪的脚步声经过...`;
+                gameState.enemyActive = false;
+                elements.enemy.classList.add('hidden');
+                setTimeout(() => {
+                    gameState.enemyActive = true;
+                    moveEnemy();
+                }, 8000);
+            }
+        } else if (objectName === '祭坛' && gameState.inventory.includes('仪式匕首')) {
+            message = `你将仪式匕首插入祭坛中央，整个地下室开始震动！`;
+            setTimeout(() => {
+                endGame(true);
+            }, 3000);
+            return;
+        }
+        
+        addDialogText(message);
+    }
+
+    // 敌人移动AI
+    function moveEnemy() {
+        if (!gameState.enemyActive || gameState.gameOver) return;
+        
+        const room = document.getElementById(gameState.currentRoom);
+        if (room) {
+            const rect = room.getBoundingClientRect();
+            const x = Math.random() * (rect.width - 80) + rect.left + 40;
+            const y = Math.random() * (rect.height - 120) + rect.top + 60;
+            
+            gameState.enemyPosition = { x, y };
+            elements.enemy.style.left = `${x}px`;
+            elements.enemy.style.top = `${y}px`;
+            elements.enemy.classList.remove('hidden');
+            
+            // 敌人检测
+            const playerDist = Math.hypot(
+                gameState.playerPosition.x - x, 
+                gameState.playerPosition.y - y
+            );
+            
+            if (playerDist < 200) {
+                if (gameState.flashlightOn) {
+                    addDialogText("你用手电筒照亮了黑暗中的影子，它发出刺耳的嘶鸣后退缩了！");
+                    elements.enemy.classList.add('hidden');
+                    setTimeout(moveEnemy, 10000);
+                } else {
+                    addDialogText("一个影子快速向你逼近，你无法挣脱...");
+                    setTimeout(() => endGame(false), 1000);
+                    return;
+                }
+            }
+        }
+        
+        setTimeout(moveEnemy, Math.random() * 5000 + 3000);
+    }
+
+    // 结局处理
+    function endGame(isWin, type = "") {
+        gameState.gameOver = true;
+        
+        if (isWin) {
+            let title, message;
+            
+            if (gameState.specialEnding) {
+                title = "特遣队救援";
+                message = "特遣队员破门而入，强光手电扫过每个角落。你被护送出老宅时，回头看见妹妹的影子在窗口向你挥手... 这个秘密将永远埋藏。";
+            } else if (type === "police") {
+                title = "警察救援";
+                message = "警察冲进老宅将你救下，笔录时你提到的影子和仪式被当作创伤后的幻觉。出院后，你收到一封匿名信，里面是妹妹的头发...";
+            } else {
+                title = gameState.cluesFound >= gameState.totalClues ? "真结局" : "普通结局";
+                message = gameState.cluesFound >= gameState.totalClues 
+                    ? "仪式核心被摧毁，妹妹的灵魂在火光中向你微笑。老宅坍塌时，你手中多了一缕她的发丝——这是解脱，也是新生。"
+                    : "你逃离了老宅，但妹妹的下落仍是谜。深夜梦回，总能听到她在老宅里呼唤你的名字...";
+            }
+            
+            document.getElementById('end-title').textContent = title;
+            document.getElementById('end-message').textContent = message;
+        } else {
+            document.getElementById('end-title').textContent = "坏结局";
+            document.getElementById('end-message').textContent = "你被影子吞噬，意识消散前，看到妹妹的脸与影子重叠——原来你们早已成为老宅的一部分。";
+        }
+        
+        elements.gameOver.classList.remove('hidden');
+    }
+
+    // 辅助函数
+    function updateFlashlightBattery() {
+        elements.flashlightBar.style.width = `${gameState.flashlightBattery}%`;
+        
+        if (gameState.flashlightBattery < 20) {
+            elements.flashlightBar.classList.add('bg-yellow-500');
+            if (gameState.flashlightBattery < 10) elements.flashlightBar.classList.add('animate-pulse');
+        } else {
+            elements.flashlightBar.classList.remove('bg-yellow-500', 'animate-pulse');
+        }
+    }
+
+    function addDialogText(text) {
+        const p = document.createElement('p');
+        p.className = 'mb-2';
+        p.textContent = text;
+        elements.dialogText.appendChild(p);
+        elements.dialogText.scrollTop = elements.dialogText.scrollHeight;
+    }
+
+    function playSound(id, volume = 0.5, duration = null) {
+        const sound = gameState.audioElements[id];
+        if (sound) {
+            sound.volume = volume;
+            sound.currentTime = 0;
+            sound.play();
+            
+            if (duration) {
+                setTimeout(() => sound.pause(), duration);
+            }
+        }
+    }
+
+    function stopSound(id) {
+        const sound = gameState.audioElements[id];
+        if (sound) sound.pause();
+    }
+
+    function toggleInventory() {
+        elements.inventoryScreen.classList.toggle('hidden');
+        if (!elements.inventoryScreen.classList.contains('hidden')) {
+            elements.inventoryItems.innerHTML = '';
+            gameState.inventory.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'bg-dark/60 border border-light/30 rounded-md p-3';
+                div.innerHTML = `<h3 class="text-primary">${itemsData[item].name}</h3><p class="text-sm text-light/70">${itemsData[item].description}</p>`;
+                elements.inventoryItems.appendChild(div);
+            });
+        }
+    }
+
+    function toggleMap() {
+        elements.mapScreen.classList.toggle('hidden');
+    }
+
+    function showRoom(roomId) {
+        document.getElementById(roomId).classList.remove('hidden');
+    }
+
+    function hideAllRooms() {
+        Object.keys(roomConfig).forEach(roomId => {
+            document.getElementById(roomId).classList.add('hidden');
+        });
+    }
+
+    function updateMapPlayerPosition() {
+        const pos = roomConfig[gameState.currentRoom].mapPosition;
+        elements.mapPlayer.style.left = `${pos.x * 100}%`;
+        elements.mapPlayer.style.top = `${pos.y * 100}%`;
+    }
+
+    function updateCluesCount() {
+        elements.cluesCount.textContent = `${gameState.cluesFound}/${gameState.totalClues}`;
+    }
+
+    function handleKeydown(e) {
+        if (gameState.gameOver) return;
+        
+        if (e.code === 'Space') toggleFlashlight();
+        if (e.code === 'KeyE') {
+            const element = document.elementFromPoint(gameState.playerPosition.x, gameState.playerPosition.y);
+            if (element?.dataset.item) {
+                pickupItem(element.dataset.item);
+                element.remove();
+            } else if (element?.dataset.interact) {
+                interactWithObject(element.dataset.interact);
+            } else if (element?.dataset.door) {
+                changeRoom(roomConfig[gameState.currentRoom].exits[element.dataset.door]);
+            }
+        }
+    }
+
+    function handleMouseMove(e) {
+        gameState.playerPosition = { x: e.clientX, y: e.clientY };
+        if (gameState.flashlightOn) {
+            elements.flashlight.style.left = `${e.clientX - 192}px`;
+            elements.flashlight.style.top = `${e.clientY - 192}px`;
+        }
+    }
+
+    function toggleFlashlight() {
+        gameState.flashlightOn = !gameState.flashlightOn;
+        elements.flashlight.classList.toggle('hidden', !gameState.flashlightOn);
+        addDialogText(gameState.flashlightOn ? "你打开了手电筒，光束刺破黑暗。" : "你关闭了手电筒，黑暗吞噬了一切。");
+    }
+
+    function restartGame() {
+        // 重置游戏状态
+        Object.assign(gameState, {
+            currentRoom: 'room-living',
+            flashlightOn: true,
+            flashlightBattery: 100,
+            inventory: [],
+            cluesFound: 0,
+            enemyActive: false,
+            gameOver: false,
+            policeCalled: false,
+            policeTimer: 60,
+            phoneNumber: "",
+            specialEnding: false
+        });
+        
+        // 重置界面
+        elements.gameOver.classList.add('hidden');
+        elements.rescueAnimation.classList.add('hidden');
+        elements.policeAnimation.classList.add('hidden');
+        elements.policeStatus.classList.add('hidden');
+        elements.phoneScreen.classList.add('hidden');
+        elements.phoneScreen.classList.remove('active');
+        updateFlashlightBattery();
+        clearPhoneNumber();
+        
+        // 重新初始化物品
+        initRooms();
+        startGame();
+    }
+
+    function playSound(id, volume = 0.5, duration = null, loop = false) {
+        const sound = gameState.audioElements[id];
+        if (sound) {
+            sound.volume = volume;
+            sound.loop = loop;
+            sound.currentTime = 0;
+            sound.play().catch(e => console.log("Audio play failed:", e));
+            
+            if (duration) setTimeout(() => sound.pause(), duration);
+        }
+    }
+
+    function stopSound(id) {
+        const sound = gameState.audioElements[id];
+        if (sound) {
+            sound.pause();
+            sound.loop = false;
+        }
+    }
+
+    // 游戏循环
+    function gameLoop() {
+        if (!gameState.gameOver && gameState.flashlightOn) {
+            gameState.flashlightBattery = Math.max(0, gameState.flashlightBattery - 0.05);
+            updateFlashlightBattery();
+            
+            if (gameState.flashlightBattery <= 0) {
+                gameState.flashlightOn = false;
+                elements.flashlight.classList.add('hidden');
+                addDialogText("手电筒没电了！黑暗中似乎有什么东西在靠近...");
+            }
+        }
+        
+        requestAnimationFrame(gameLoop);
+    }
+
+    // 启动游戏
+    window.addEventListener('load', initGame);
+</script>
+
+</body>
+</html>
