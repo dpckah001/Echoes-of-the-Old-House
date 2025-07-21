@@ -5,7 +5,11 @@
 # 启动游戏
 import time
 import pygame
+# buttons files
 from buttons import GameStartButton
+from buttons import SettingButton
+
+
 
 pygame.init()
 
@@ -24,8 +28,13 @@ BLACK = (0, 0, 0)
 game_running = True
 game_clock = pygame.time.Clock()
 
-# 创建按钮实例
-button = GameStartButton(250, 70, "New Game")
+def start_web():
+    # 创建START按钮实例
+	Start_new_game_button = GameStartButton(250, 70, "New Game")
+	Load_old_gam_button = GameStartButton(250, 70, "Load Game")
+
+	# settings button
+	setting_button = SettingButton(80, 80)
 
 while game_running:
     for event in pygame.event.get():
