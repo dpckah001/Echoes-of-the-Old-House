@@ -12,7 +12,7 @@ class GameStartButton():
         # 定义矩形区域
         rect = pygame.Rect(self.x, self.y, self.width, self.height)
         DARK_RED = (128, 0, 0)
-        # 绘制矩形按钮，这里假设颜色为灰色 (128, 128, 128)
+        # 绘制矩形按钮，这里假设颜色为黑红色
         pygame.draw.rect(screen, DARK_RED, rect)
         # 渲染文本
         font = pygame.font.Font("fonts/game_regular.ttf", 36)
