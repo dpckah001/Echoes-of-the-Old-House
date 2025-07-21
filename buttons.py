@@ -22,3 +22,18 @@ class GameStartButton():
         text_y = self.y + (self.height - text_surface.get_height()) // 2
         # 绘制文本
         screen.blit(text_surface, (text_x, text_y))
+
+# Setting button 
+class SettingButton():
+    def __init__(self, width, height,radius,color):
+        self.width = width
+        self.height = height
+        self.radius = radius
+        self.color = color 
+        # import image
+        self.setting_button_image = pygame.image.load("/image/setting_button.png").convert_alpha()
+        self.setting_button_image = pygame.transform.scale(self.setting_button_image, (radius * 2, radius * 2))
+        
+    
+        
+    def 
