@@ -34,6 +34,11 @@ class SettingButton():
         self.setting_button_image = pygame.image.load("/image/setting_button.png").convert_alpha()
         self.setting_button_image = pygame.transform.scale(self.setting_button_image, (radius * 2, radius * 2))
         
-    
         
-    def 
+    def draw(self,screen):
+        # draw the png
+        screen.bilt(self.setting_button_image, (self.x - self.radius, self.y - self.radius))
+    
+    # press the button and then tell the page file
+    def the_set_press_down(self, mousepos):
+        if self.is
