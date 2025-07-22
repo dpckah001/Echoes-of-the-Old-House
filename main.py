@@ -39,14 +39,16 @@ def start_web():
 while game_running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            game_running = False 
+            game_running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if setting_button.the_set_press_down(event.pos):
+                Events_file. 
 
     # 渲染游戏
     screen.fill(BLACK)
 
     # 绘制按钮
     button.draw(screen)
-
     # 更新显示
     pygame.display.flip()
 
