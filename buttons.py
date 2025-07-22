@@ -31,14 +31,22 @@ class SettingButton():
         self.radius = radius
         self.color = color 
         # import image
-        self.setting_button_image = pygame.image.load("/image/setting_button.png").convert_alpha()
+        self.setting_button_image = pygame.image.load("./image/setting_button.png").convert_alpha()
         self.setting_button_image = pygame.transform.scale(self.setting_button_image, (radius * 2, radius * 2))
         
         
     def draw(self,screen):
+        
         # draw the png
         screen.bilt(self.setting_button_image, (self.x - self.radius, self.y - self.radius))
     
     # press the button and then tell the page file
     def the_set_press_down(self, mousepos):
-        if self.is
+        mouse_x, mouse_y = mousepos
+        
+        distance = ((mouse_x - self.x) ** 2 + (mouse_y - self.y) ** 2) ** 0.5
+        if distance <= self.radius:
+            from Events_file import setting_page 
+            setting_page()
+        else:
+            pass    
